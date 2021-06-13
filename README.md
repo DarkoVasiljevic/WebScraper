@@ -1,5 +1,4 @@
 # WebScraper
-
 Console app demonstrates how a web scraper works.
 
 ## Dependences
