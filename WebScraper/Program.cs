@@ -1,6 +1,7 @@
 ﻿
 using HtmlAgilityPack;
 using System;
+using System.Configuration;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -12,13 +13,17 @@ namespace WebScraper
 {
     public class Program
     {
-        private static readonly string url = "https://srh.bankofchina.com/search/whpj/searchen.jsp";
+        private static readonly string url = 
+            ConfigurationManager.AppSettings.Get("URL_l");
 
         public static void Main(string[] args)
         {
             try
             {
-                new HtmlParser(new Scraper(url)).Start();
+                if (Uri.IsWellFormedUriString(url, UriKind.Absolute))
+                    new HtmlParser(new Scraper(url)).Start();
+                else
+                    throw new ApplicationException("Invalid URL string...");
             }
             catch (Exception ex)
             {
