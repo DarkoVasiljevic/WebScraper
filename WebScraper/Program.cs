@@ -1,20 +1,12 @@
-﻿
-using HtmlAgilityPack;
-using System;
+﻿using System;
 using System.Configuration;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Text;
-using System.Text.Json;
-using System.Web;
 
 namespace WebScraper
 {
     public class Program
     {
         private static readonly string url = 
-            ConfigurationManager.AppSettings.Get("URL_l");
+            ConfigurationManager.AppSettings.Get("URL");
 
         public static void Main(string[] args)
         {
