@@ -6,6 +6,7 @@ using CsvHelper;
 using System.IO;
 using System.Globalization;
 using System.Configuration;
+using System.Threading;
 
 namespace WebScraper
 {
@@ -27,8 +28,11 @@ namespace WebScraper
         public IList<string> Currencies { get; private set; }
 
         public List<List<string>> TableData { get; private set; }
+        
+        public List<string>  Header { get; private set; }
 
         public bool NoRecords { get; private set; }
+
 
         public string OutputDirectory { get; private set; }
 
@@ -40,6 +44,7 @@ namespace WebScraper
 
             Html = new HtmlDocument();
             TableData = new List<List<string>>();
+            Header = new List<string>();
 
             StartingPage = 1;
             NoRecords = false;
@@ -58,7 +63,7 @@ namespace WebScraper
                 Console.WriteLine("\r\n------------------");
 
                 LoadHtmlInit();
-                
+
                 SetCurrencies("option");
                 CreateOutputDirectory();
 
@@ -140,8 +145,10 @@ namespace WebScraper
         {
             Currencies.Skip(1)
                 .ToList()
-                .ForEach(e => ParseHtmlDocumentByCurency(e))
-                ;
+                .ForEach(e =>
+                {
+                    ParseHtmlDocumentByCurency(e);
+                });
         }
 
         public void ParseHtmlDocumentByCurency(string currency)
@@ -154,12 +161,12 @@ namespace WebScraper
             LoadHtmlPost(currency, currentPage.ToString());
             GetTableData(currentPage);
 
+
             while (true)
             {
                 try
                 {
                     Console.WriteLine("Currency: " + currency + " Page: " + currentPage);
-                    
                     LoadHtmlPost(currency, nextPage.ToString());
 
                     string page = Html.DocumentNode.SelectSingleNode("/html/body/form/input[4]")
@@ -197,6 +204,7 @@ namespace WebScraper
             WriteDataToFile(fileName);
 
             TableData = new List<List<string>>();
+            Header = new List<string>();
         }
 
         private void LoadHtmlPost(string currency, string page)
@@ -233,21 +241,33 @@ namespace WebScraper
             if (table == null)
                 throw new ApplicationException("GetTableData()");
 
-            table.SelectNodes("tr").ToList().ForEach(row =>
+            if (page == 1)
+            {
+                table.SelectNodes("tr").ToList().Take(1).ToList().ForEach(headerRow =>
+                {
+                    headerRow.SelectNodes("th|td").ToList().ForEach(headerCell =>
+                    {
+                        if (headerCell.InnerText.Trim().StartsWith("sorry, no records") ||
+                             headerRow.SelectNodes("th|td").ToList().Count == 1)
+                        {
+                            Header.Add("sorry, no records");
+
+                            NoRecords = true;
+
+                            return;
+                        }
+
+                        Header.Add(headerCell.InnerText.Trim());
+                    });
+                });
+            }
+
+            table.SelectNodes("tr").ToList().Skip(1).ToList().ForEach(row =>
             {
                 var singleLineData = new List<string>();
 
                 row.SelectNodes("th|td").ToList().ForEach(cell =>
                 {
-                    if (cell.InnerText.Trim().StartsWith("sorry, no records") ||
-                        row.SelectNodes("th|td").ToList().Count == 1)
-                    {
-                        singleLineData.Add("sorry, no records");
-
-                        NoRecords = true;
-                        return;
-                    }
-
                     singleLineData.Add(cell.InnerText.Trim());
                 });
 
@@ -264,12 +284,17 @@ namespace WebScraper
                 
                 using CsvWriter csvWriter = new CsvWriter(writer, CultureInfo.CurrentCulture);
 
-                List<string> header = TableData[0].ToList();
-                header.ForEach(h => csvWriter.WriteField(h));
+                Header
+                    .ForEach(h =>
+                    {
+                        csvWriter.WriteField(h);
+                    });
+
                 csvWriter.NextRecord();
 
-                TableData.Skip(1).ToList()
-                    .ForEach(r => {
+                TableData
+                    .ForEach(r => 
+                    {
                         csvWriter.WriteField(r);
                         csvWriter.NextRecord();
                     });
